@@ -1,0 +1,1 @@
+docker run --user root --workdir /bsc-work --rm -t -i --mount=type=bind,source=.,destination=/bsc-work kazutoiris/connectal bash
