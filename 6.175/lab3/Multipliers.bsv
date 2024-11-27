@@ -104,45 +104,38 @@ endmodule
 
 // Booth Multiplier
 module mkBoothMultiplier( Multiplier#(n) );
-    Reg#(Bit#(TAdd#(TAdd#(n,n),1))) m_neg <- mkRegU;
     Reg#(Bit#(TAdd#(TAdd#(n,n),1))) m_pos <- mkRegU;
+    Reg#(Bit#(TAdd#(TAdd#(n,n),1))) m_neg <- mkRegU;
     Reg#(Bit#(TAdd#(TAdd#(n,n),1))) p <- mkRegU;
-    Reg#(Bit#(TAdd#(TLog#(n),1))) i <- mkReg( fromInteger(valueOf(n)+1) );
+    Reg#(UInt#(TAdd#(TLog#(n),1))) i <- mkReg( fromInteger(valueOf(n)+1) );
 
-    rule mul_step( /* guard goes here */ i < fromInteger(valueOf(n)));
-        // TODO: Implement this in Exercise 6
-        Bit#(TAdd#(TAdd#(n,n),1)) sum = p;
-        if (p[1:0] == 2'b01) begin
-            sum = p + m_pos;
-        end else if (p[1:0] == 2'b10) begin
-            sum = p + m_neg;
-        end
+    rule mul_step( i < fromInteger(valueOf(n)) );
+        let sum = case (p[1:0])
+                      2'b01: return p + m_pos;
+                      2'b10: return p + m_neg;
+                      default: return p;
+                  endcase;
 
         p <= shr_signed(sum, 1);
         i <= i+1;
-
     endrule
 
     method Bool start_ready();
-        // TODO: Implement this in Exercise 6
         return i == fromInteger(valueOf(n)+1);
     endmethod
 
     method Action start( Bit#(n) m, Bit#(n) r );
-        // TODO: Implement this in Exercise 6
-        m_neg <= {(-m), 0};
         m_pos <= {m, 0};
+        m_neg <= {(-m), 0};
         p <= {0, r, 1'b0};
         i <= 0;
     endmethod
 
     method Bool result_ready();
-        // TODO: Implement this in Exercise 6
         return i == fromInteger(valueOf(n));
     endmethod
 
     method ActionValue#(Bit#(TAdd#(n,n))) result();
-        // TODO: Implement this in Exercise 6
         i <= i+1;
         return p[?:1];
     endmethod
