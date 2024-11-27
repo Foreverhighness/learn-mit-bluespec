@@ -20,10 +20,10 @@ endfunction
 // in the file BarrelShifter.bsv provided with the initial lab code.
 
 function Bit#(32) barrelShifterRight(Bit#(32) in, Bit#(5) shiftBy);
-  Bit#(TMul#(32,6)) res = 0;
-  res[31:0] = in;
-  for (Integer i = 0; i < 5; i = i + 1) begin
-    res[(i+2) * 32 - 1 :(i+1) * 32] = shiftBy[i] == 1 ? shiftRightPow2(1, res[(i+1) * 32 - 1 :(i) * 32], i) : res[(i+1) * 32 - 1 :(i) * 32];
-  end
-  return res[32*6-1:32*5];
+    Vector#(TAdd#(TLog#(32), 1), Bit#(32)) shifted = newVector();
+    shifted[0] = in;
+    for (Integer i = 0; i < valueOf(TLog#(32)); i = i + 1) begin
+        shifted[i + 1] = shiftRightPow2(shiftBy[i], shifted[i], i);
+    end
+    return shifted[valueOf(TLog#(32))];
 endfunction
