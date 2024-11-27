@@ -13,14 +13,13 @@ endfunction
 // 4 Bit full adder
 
 function Bit#(5) add4( Bit#(4) a, Bit#(4) b, Bit#(1) c_in );
-    Bit#(5) ret = 0;
-    Bit#(5) c = {?, c_in};
+    Bit#(4) sum = 0;
+    Bit#(5) carry = {?, c_in};
     for (Integer i = 0; i < 4; i = i + 1) begin
-        ret[i] = fa_sum(a[i], b[i], c[i]);
-        c[i+1] = fa_carry(a[i], b[i], c[i]);
+        sum[i] = fa_sum(a[i], b[i], carry[i]);
+        carry[i + 1] = fa_carry(a[i], b[i], carry[i]);
     end
-    ret[4] = c[4];
-    return ret;
+    return { carry[4], sum };
 endfunction
 
 // Adder interface
@@ -34,26 +33,44 @@ endinterface
 // RC = Ripple Carry
 module mkRCAdder( Adder8 );
     method ActionValue#( Bit#(9) ) sum( Bit#(8) a, Bit#(8) b, Bit#(1) c_in );
-        Bit#(5) lower_result = add4( a[3:0], b[3:0], c_in );
-        Bit#(5) upper_result = add4( a[7:4], b[7:4], lower_result[4] );
-        return { upper_result , lower_result[3:0] };
+        Bit#(2) carry;
+        Bit#(8) s;
+
+        let lower_result = add4( a[3:0], b[3:0], c_in );
+        carry[0] = lower_result[4];
+        s[3:0] = lower_result[3:0];
+
+        let upper_result = add4( a[7:4], b[7:4], lower_result[4] );
+        carry[1] = upper_result[4];
+        s[7:4] = upper_result[3:0];
+
+        return { carry[1], s };
     endmethod
 endmodule
 
 // CS = Carry Select
 module mkCSAdder( Adder8 );
     method ActionValue#( Bit#(9) ) sum( Bit#(8) a, Bit#(8) b, Bit#(1) c_in );
-       Bit#(9) s = 0;
-       Bit#(1) c_l = 0;
-       let low_res = add4(a[3:0], b[3:0], c_in);
-       let high_res_c0 = add4(a[7:4], b[7:4], 0);
-       let high_res_c1 = add4(a[7:4], b[7:4], 1);
-       let low_cr = low_res[4];
-       let high_res = multiplexer_n(low_cr, high_res_c0[3:0], high_res_c1[3:0]);
-       let high_cr =  multiplexer_n(low_cr, high_res_c0[4], high_res_c1[4]);
-       s[3:0] = low_res[3:0];
-       s[7:4] = high_res[3:0];
-       s[8] = high_cr;
-       return s;
+        Bit#(8) s;
+
+        let lower_result = add4( a[3:0], b[3:0], c_in );
+        let carry = lower_result[4];
+        s[3:0] = lower_result[3:0];
+
+        let without_carry = add4( a[7:4], b[7:4], 0 );
+        let carry0 = without_carry[4];
+        let sum0 = without_carry[3:0];
+
+        let with_carry = add4( a[7:4], b[7:4], 1 );
+        let carry1 = with_carry[4];
+        let sum1 = with_carry[3:0];
+
+        let sum_selector = carry;
+        let carry_selector = carry;
+
+        let carry_out = multiplexer_n( carry_selector, carry0, carry1 );
+        s[7:4] = multiplexer_n( sum_selector, sum0, sum1 );
+
+        return { carry_out, s };
     endmethod
 endmodule

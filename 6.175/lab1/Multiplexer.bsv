@@ -26,7 +26,7 @@ function Bit#(5) multiplexer5(Bit#(1) sel, Bit#(5) a, Bit#(5) b);
 endfunction
 
 function Bit#(n) multiplexer_n(Bit#(1) sel, Bit#(n) a, Bit#(n) b);
-    Bit#(n) ret  = 0;
+    Bit#(n) ret = 0;
     for (Integer i = 0; i < valueOf(n); i = i + 1) begin
         ret[i] = multiplexer1(sel, a[i], b[i]);
     end
