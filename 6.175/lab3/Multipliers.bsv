@@ -31,26 +31,19 @@ endfunction
 
 // Multiplication by repeated addition
 function Bit#(TAdd#(n,n)) multiply_by_adding( Bit#(n) a, Bit#(n) b );
-    // TODO: Implement this function in Exercise 2
+    Vector#(TAdd#(n, 1), Bit#(n)) product_upper = newVector;
+    Bit#(n) product_lower = 0;
+    product_upper[0] = 0;
 
-    Bit#(TAdd#(n,n)) res = 0;
-    Bit#(TAdd#(n,1)) t = 0;
+    for (Integer i = 0; i < valueOf(n); i = i + 1) begin
+        let adder = b[i] == 0 ? 0 : a;
+        let sum = add_unsigned( product_upper[i], adder );
 
-    for (Integer i=0; i<valueOf(n); i=i+1) begin
-        Bit#(TSub#(n,1)) ttt = t[valueOf(n)-1:1];
-        Bit#(n) tt = { t[valueOf(n)] , ttt};
-        if (b[i] == 0) begin 
-            t = add_unsigned(tt, 0);
-        end else begin
-            t = add_unsigned(tt, a);
-        end
-        res[i] = t[0];
+        product_lower[i] = sum[0];
+        product_upper[i + 1] = sum[valueOf(n):1];
     end
 
-    Bit#(n) zz = t[valueOf(n):1];
-    res[valueOf(n)*2-1:valueOf(n)] = zz;
-
-    return res;
+    return { product_upper[valueOf(n)], product_lower };
 endfunction
 
 
@@ -126,7 +119,7 @@ module mkBoothMultiplier( Multiplier#(n) );
             sum = p + m_pos;
         end else if (p[1:0] == 2'b10) begin
             sum = p + m_neg;
-        end 
+        end
 
         p <= shr_signed(sum, 1);
         i <= i+1;
@@ -182,7 +175,7 @@ module mkBoothMultiplierRadix4( Multiplier#(n) );
             sum = p + m_neg;
         end else if (p[2:0] == 3'b110) begin
             sum = p + m_neg;
-        end 
+        end
 
         p <= shr_signed(sum, 2);
         i <= i+1;

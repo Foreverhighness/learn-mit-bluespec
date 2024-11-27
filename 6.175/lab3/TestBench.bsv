@@ -9,12 +9,12 @@ module mkTbDumb();
     return tb;
 endmodule
 
-// (* synthesize *)
-// module mkTbFoldedMultiplier();
-//     Multiplier#(8) dut <- mkFoldedMultiplier();
-//     Empty tb <- mkTbMulModule(dut, multiply_signed, True);
-//     return tb;
-// endmodule
+(* synthesize *)
+module mkTbFoldedMultiplier();
+    Multiplier#(8) dut <- mkFoldedMultiplier();
+    Empty tb <- mkTbMulModule(dut, multiply_signed, True);
+    return tb;
+endmodule
 
 (* synthesize *)
 module mkTbSignedVsUnsigned();
