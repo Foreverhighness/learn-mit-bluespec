@@ -143,41 +143,41 @@ endmodule
 
 
 
+//  Current Bits | Previous Bits | Original Booth Encoding | Radix-4 Booth Encoding
+// --------------+---------------+-------------------------+------------------------
+//       00      |       0       |           00            |          00
+//       00      |       1       |           0+            |          0+
+//       01      |       0       |           +-            |          0+
+//       01      |       1       |           +0            |          +0
+//       10      |       0       |           -0            |          -0
+//       10      |       1       |           -+            |          0-
+//       11      |       0       |           0-            |          0-
+//       11      |       1       |           00            |          00
 // Radix-4 Booth Multiplier
 module mkBoothMultiplierRadix4( Multiplier#(n) );
-    Reg#(Bit#(TAdd#(TAdd#(n,n),2))) m_neg <- mkRegU;
     Reg#(Bit#(TAdd#(TAdd#(n,n),2))) m_pos <- mkRegU;
+    Reg#(Bit#(TAdd#(TAdd#(n,n),2))) m_neg <- mkRegU;
     Reg#(Bit#(TAdd#(TAdd#(n,n),2))) p <- mkRegU;
-    Reg#(Bit#(TAdd#(TLog#(n),1))) i <- mkReg( fromInteger(valueOf(n)/2+1) );
+    Reg#(UInt#(TLog#(n))) i <- mkReg( fromInteger(valueOf(n)/2+1) );
 
-    rule mul_step( /* guard goes here */  i < fromInteger(valueOf(n)/2) );
-        // TODO: Implement this in Exercise 8
-        Bit#(TAdd#(TAdd#(n,n),2)) sum = p;
-        if (p[2:0] == 3'b001) begin
-            sum = p + m_pos;
-        end else if (p[2:0] == 3'b010) begin
-            sum = p + m_pos;
-        end else if (p[2:0] == 3'b011) begin
-            sum = p + (m_pos << 1);
-        end else if (p[2:0] == 3'b100) begin
-            sum = p + (m_neg << 1);
-        end else if (p[2:0] == 3'b101) begin
-            sum = p + m_neg;
-        end else if (p[2:0] == 3'b110) begin
-            sum = p + m_neg;
-        end
+    rule mul_step( i < fromInteger(valueOf(n)/2) );
+        let sum = case (p[2:0])
+                      3'b001, 3'b010: return p + m_pos;
+                      3'b101, 3'b110: return p + m_neg;
+                      3'b011: return p + (m_pos << 1);
+                      3'b100: return p + (m_neg << 1);
+                      default: return p;
+                  endcase;
 
         p <= shr_signed(sum, 2);
         i <= i+1;
     endrule
 
     method Bool start_ready();
-        // TODO: Implement this in Exercise 8
         return i == fromInteger(valueOf(n)/2+1);
     endmethod
 
     method Action start( Bit#(n) m, Bit#(n) r );
-        // TODO: Implement this in Exercise 8
         m_pos <= {m[valueOf(n)-1], m, 0};
         m_neg <= {(-m)[valueOf(n)-1], (-m), 0};
         p <= {0, r, 1'b0};
@@ -185,14 +185,12 @@ module mkBoothMultiplierRadix4( Multiplier#(n) );
     endmethod
 
     method Bool result_ready();
-        // TODO: Implement this in Exercise 8
         return i == fromInteger(valueOf(n)/2);
     endmethod
 
     method ActionValue#(Bit#(TAdd#(n,n))) result();
-        // TODO: Implement this in Exercise 8
-        i <= i+1;
-        return p[valueOf(n)*2:1];
+        i <= i + 1;
+        return p[?:1];
     endmethod
 endmodule
 
