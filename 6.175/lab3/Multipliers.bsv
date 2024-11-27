@@ -65,41 +65,38 @@ module mkFoldedMultiplier( Multiplier#(n) );
     Reg#(Bit#(n)) b <- mkRegU();
     Reg#(Bit#(n)) prod <- mkRegU();
     Reg#(Bit#(n)) tp <- mkRegU();
-    Reg#(Bit#(TAdd#(TLog#(n),1))) i <- mkReg( fromInteger(valueOf(n)+1) );
+    Reg#(UInt#(TAdd#(TLog#(n), 1))) i <- mkReg( unpack('1) );
 
-    rule mulStep( /* guard goes here */ i < fromInteger(valueOf(n)) );
-        // TODO: Implement this in Exercise 4
-        let sum = add_unsigned(tp, b[0] == 1 ? a : 0 );
-        b <= b >> 1;
-        Bit#(TSub#(n,1)) t = prod[?:1];
-        prod <= {sum[0], t};
-        tp <= sum[?:1];
+    rule mulStep( i < fromInteger(valueOf(n)) );
+        let adder = b[i] == 0 ? 0 : a;
+        let sum = add_unsigned( tp, adder );
+
+        prod[i] <= sum[0];
+        tp <= sum[valueOf(n):1];
+
         i <= i + 1;
     endrule
 
     method Bool start_ready();
-        // TODO: Implement this in Exercise 4
-        return i == fromInteger(valueOf(n)+1);
+        return i == unpack('1);
     endmethod
 
     method Action start( Bit#(n) aIn, Bit#(n) bIn );
-        // TODO: Implement this in Exercise 4
         a <= aIn;
         b <= bIn;
-        i <= 0;
-        prod <= 0;
+        // prod <= 0; // prod does not require initialization
         tp <= 0;
+        i <= 0;
     endmethod
 
     method Bool result_ready();
-        // TODO: Implement this in Exercise 4
         return i == fromInteger(valueOf(n));
     endmethod
 
     method ActionValue#(Bit#(TAdd#(n,n))) result();
-        // TODO: Implement this in Exercise 4
-        i <= i+1;
-        return {tp, prod};
+        i <= unpack('1);
+
+        return { tp, prod };
     endmethod
 endmodule
 
