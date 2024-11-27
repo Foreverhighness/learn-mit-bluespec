@@ -16,63 +16,50 @@ endinterface
 // The interface defined in Fifo.bsv tells you the type of the methods
 // (enq, deq, first) that your module should define.
 module mkFifo(Fifo#(3,t)) provisos (Bits#(t,tSz));
-   // define your own 3-elements fifo here.
-    Vector#(3, Reg#(t)) d;
-    d[0] <- mkRegU();
-    d[1] <- mkRegU();
-    d[2] <- mkRegU();
-    Reg#(Bit#(3)) v <- mkReg(0);
+    // define your own 3-elements fifo here.
+    Vector#(3, Reg#(t)) data <- replicateM( mkRegU );
+    Reg#(UInt#(2)) front <- mkReg(0);
+    Reg#(UInt#(2)) rear <- mkReg(0);
+    Reg#(Bool) valid <- mkReg(False);
 
     rule canonicalize;
-
-        
-
     endrule
 
     // Enq if there's at least one spot open... so, dc is invalid.
-    method Action enq(t x) if (v[2] == 0);
-        $display("enq=%d", v);
-        if (v[0] == 0) begin 
-            d[0] <= x;
-            v[0] <= 1;
-        end else if (v[1] == 0) begin
-            d[1] <= x;
-            v[1] <= 1;
-        end else begin 
-            d[2] <= x;
-            v[2] <= 1;
-        end
+    method Action enq(t x) if (!valid || front != rear);
+        let next = case (rear)
+                       0, 1: return rear + 1;
+                       2:    return 0;
+                   endcase;
+
+        data[rear] <= x;
+        rear <= next;
+        valid <= True;
     endmethod
 
     // Deq if there's a valid d[0]ta at d[0]
-    method Action deq() if (v[0] == 1);
-        $display("deq=%d", v);
-        if (v[2]==1) begin
-            d[0] <= d[1];
-            d[1] <= d[2];
-            v[2] <= 0;
-        end else if (v[1] == 1) begin
-             d[0] <= d[1];
-             v[1] <= 0;
-        end else begin
-            v[0] <= 0;
-            // v[1] <= 0;
-            // v[2] <= 0;
-        end
+    method Action deq() if (valid);
+        let next = case (front)
+                       0, 1: return front + 1;
+                       2:    return 0;
+                   endcase;
+
+        front <= next;
+        valid <= next == rear ? False : True;
     endmethod
 
-    // First if there's a valid data at d[0]
-    method t first() if (v[0] == 1);
-        return d[0];
+    // First if there's a valid data
+    method t first() if (valid);
+        return data[front];
     endmethod
 
     // Check if fifo's empty
     method Bool notEmpty();
-        return v[0] == 1;
+        return valid;
     endmethod
 
     method Bool notFull();
-       return v[2] == 0;
+       return !valid || front != rear;
     endmethod
 
 endmodule
