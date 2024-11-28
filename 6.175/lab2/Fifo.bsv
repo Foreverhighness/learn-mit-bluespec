@@ -16,52 +16,53 @@ endinterface
 // The interface defined in Fifo.bsv tells you the type of the methods
 // (enq, deq, first) that your module should define.
 module mkFifo(Fifo#(3,t)) provisos (Bits#(t,tSz));
-    // define your own 3-elements fifo here.
     Vector#(3, Reg#(t)) data <- replicateM( mkRegU );
-    Reg#(UInt#(2)) front <- mkReg(0);
-    Reg#(UInt#(2)) rear <- mkReg(0);
-    Reg#(Bool) valid <- mkReg(False);
+    Vector#(3, Reg#(Bool)) valid <- replicateM( mkReg( False ) );
 
     rule canonicalize;
+        if ( !valid[0] && valid[2] ) begin
+            valid[0] <= True;
+            valid[2] <= False;
+
+            data[0] <= data[2];
+        end else if ( !valid[1] && valid[2] ) begin
+            valid[1] <= True;
+            valid[2] <= False;
+
+            data[1] <= data[2];
+        end
     endrule
 
-    // Enq if there's at least one spot open... so, dc is invalid.
-    method Action enq(t x) if (!valid || front != rear);
-        let next = case (rear)
-                       0, 1: return rear + 1;
-                       2:    return 0;
-                   endcase;
-
-        data[rear] <= x;
-        rear <= next;
-        valid <= True;
+    method Action enq(t x) if ( !valid[2] );
+        valid[2] <= True;
+        data[2] <= x;
     endmethod
 
-    // Deq if there's a valid d[0]ta at d[0]
-    method Action deq() if (valid);
-        let next = case (front)
-                       0, 1: return front + 1;
-                       2:    return 0;
-                   endcase;
-
-        front <= next;
-        valid <= next == rear ? False : True;
+    method Action deq() if ( valid[0] );
+        // erase state `010` and `011`
+        if ( valid[1] ) begin
+            valid[1] <= False;
+            data[0] <= data[1];
+        end
+        // Removing this branch does not affect correctness
+        // else if ( valid[2] ) begin valid[2] <= False; data[0] <= data[2]; end
+        else
+            valid[0] <= False;
     endmethod
 
     // First if there's a valid data
-    method t first() if (valid);
-        return data[front];
+    method t first() if (valid[0]);
+        return data[0];
     endmethod
 
     // Check if fifo's empty
     method Bool notEmpty();
-        return valid;
+        return valid[0];
     endmethod
 
     method Bool notFull();
-       return !valid || front != rear;
+       return !valid[2];
     endmethod
-
 endmodule
 
 
