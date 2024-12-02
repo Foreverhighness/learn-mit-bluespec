@@ -2,7 +2,7 @@ import Ehr::*;
 import Vector::*;
 
 //////////////////
-// Fifo interface 
+// Fifo interface
 
 interface Fifo#(numeric type n, type t);
     method Bool notFull;
@@ -19,9 +19,9 @@ endinterface
 module mkMyConflictFifo( Fifo#(n, t) ) provisos (Bits#(t,tSz));
     // n is size of fifo
     // t is data type of fifo
-    Vector#(n, Reg#(t))     data     <- replicateM(mkRegU());
-    Reg#(Bit#(TLog#(n)))    enqP     <- mkReg(0);
-    Reg#(Bit#(TLog#(n)))    deqP     <- mkReg(0);
+    Vector#(n, Reg#(t))     queue    <- replicateM(mkRegU());
+    Reg#(Bit#(TLog#(n)))    front    <- mkReg(0);
+    Reg#(Bit#(TLog#(n)))    rear     <- mkReg(0);
     Reg#(Bool)              empty    <- mkReg(True);
     Reg#(Bool)              full     <- mkReg(False);
 
@@ -29,49 +29,38 @@ module mkMyConflictFifo( Fifo#(n, t) ) provisos (Bits#(t,tSz));
     Bit#(TLog#(n))          max_index = fromInteger(valueOf(n)-1);
 
     // TODO: Implement all the methods for this module
-
     method Bool notFull;
         return !full;
     endmethod
 
-    method Action enq(t x) if (full==False);
+    method Action enq(t x) if (!full);
+        let new_rear = rear == max_index ? 0 : rear + 1;
 
-        Bit#(TLog#(n)) newP = 0;
-        if (enqP == max_index) begin
-            newP = 0;
-        end else begin
-            newP = enqP + 1;
-        end
-        enqP <= newP;
-        full <= (newP == deqP);
+        queue[rear] <= x;
+        rear <= new_rear;
+        full <= new_rear == front;
         empty <= False;
-        data[enqP] <= x;
     endmethod
 
     method Bool notEmpty;
         return !empty;
     endmethod
 
-    method Action deq if (empty==False);
-        Bit#(TLog#(n)) newP = 0;
-        if (deqP == max_index) begin
-            newP = 0;
-        end else begin
-            newP = deqP + 1;
-        end
-        deqP <= newP;
+    method Action deq if (!empty);
+        let new_front = front == max_index ? 0 : front + 1;
 
-        empty <= (newP == enqP);
+        front <= new_front;
         full <= False;
+        empty <= new_front == rear;
     endmethod
 
-    method t first if (empty==False);
-        return data[deqP];
+    method t first if (!empty);
+        return queue[front];
     endmethod
 
     method Action clear;
-        enqP <= 0;
-        deqP <= 0;
+        front <= 0;
+        rear <= 0;
         empty <= True;
         full <= False;
     endmethod
@@ -272,7 +261,7 @@ endmodule
 //             default: begin end
 //         endcase
 
-       
+
 
 //     endrule
 
@@ -281,7 +270,7 @@ endmodule
 //     endmethod
 
 //     method Action enq(t x) if (full[0]==False);
-//         enqReq[0] <= tagged Valid x; 
+//         enqReq[0] <= tagged Valid x;
 //     endmethod
 
 //     method Bool notEmpty;
@@ -374,7 +363,7 @@ endmodule
 //                 full[0] <= False;
 //             end
 //             default: begin end
-//         endcase      
+//         endcase
 
 //     endrule
 
@@ -383,7 +372,7 @@ endmodule
 //     endmethod
 
 //     method Action enq(t x) if (full[0]==False);
-//         enqReq[0] <= tagged Valid x; 
+//         enqReq[0] <= tagged Valid x;
 //     endmethod
 
 //     method Bool notEmpty;
@@ -472,7 +461,7 @@ module mkMyCFFifo( Fifo#(n, t) ) provisos (Bits#(t,tSz));
                 full <= False;
             end
             default: begin end
-        endcase      
+        endcase
 
     endrule
 
@@ -481,7 +470,7 @@ module mkMyCFFifo( Fifo#(n, t) ) provisos (Bits#(t,tSz));
     endmethod
 
     method Action enq(t x) if (full==False);
-        enqReq[0] <= tagged Valid x; 
+        enqReq[0] <= tagged Valid x;
     endmethod
 
     method Bool notEmpty;
