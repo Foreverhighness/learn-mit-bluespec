@@ -161,7 +161,7 @@ module mkFftInelasticPipeline(Fft);
         return stage_out;
     endfunction
 
-    rule stage0;
+    rule stage0 (!isValid(sReg1));
         let data = inFifo.first;
         inFifo.deq;
 
@@ -169,7 +169,7 @@ module mkFftInelasticPipeline(Fft);
         sReg1 <= tagged Valid new_data;
     endrule
 
-    rule stage1 (sReg1 matches tagged Valid .data);
+    rule stage1 (!isValid(sReg2) &&& sReg1 matches tagged Valid .data);
         sReg1 <= tagged Invalid;
 
         let new_data = stage_f(1, data);
