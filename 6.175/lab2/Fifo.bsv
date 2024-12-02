@@ -73,12 +73,10 @@ module mkCFFifo( Fifo#(2, t) ) provisos (Bits#(t, tSz));
     Ehr#(2, t) db <- mkEhr(?);
     Ehr#(2, Bool) vb <- mkEhr(False);
 
-    rule canonicalize;
-        if( vb[1] && !va[1] ) begin
-            da[1] <= db[1];
-            va[1] <= True;
-            vb[1] <= False;
-        end
+    rule canonicalize ( vb[1] && !va[1] );
+        da[1] <= db[1];
+        va[1] <= True;
+        vb[1] <= False;
     endrule
 
     method Action enq(t x) if(!vb[0]);
