@@ -135,57 +135,52 @@ module mkFftInelasticPipeline(Fft);
     FIFOF#(Vector#(FftPoints, ComplexData)) outFifo <- mkFIFOF;
     Vector#(NumStages, Vector#(BflysPerStage, Bfly4)) bfly <- replicateM(replicateM(mkBfly4));
 
-    Reg #(Maybe #( Vector#(FftPoints, ComplexData))) sReg1 <- mkRegU;
-    Reg #(Maybe #( Vector#(FftPoints, ComplexData))) sReg2 <- mkRegU;
+    Reg#(Maybe#(Vector#(FftPoints, ComplexData))) sReg1 <- mkRegU;
+    Reg#(Maybe#(Vector#(FftPoints, ComplexData))) sReg2 <- mkRegU;
 
 
     function Vector#(FftPoints, ComplexData) stage_f(StageIdx stage, Vector#(FftPoints, ComplexData) stage_in);
-
-        Vector#(FftPoints, ComplexData) before_permute;
-        for (Integer i=0; i<valueOf(BflysPerStage); i=i+1) begin
-
-            Vector#(4, ComplexData) dat;
-            Vector#(4, ComplexData) tw;
-
-            for (Integer j=0; j<4 ; j=j+1) begin
-                let idx = fromInteger(i*4 + j);
-                dat[j] = stage_in[idx];
-                tw[j] = getTwiddle(stage, idx);
+        Vector#(FftPoints, ComplexData) stage_temp, stage_out;
+        for (FftIdx i = 0; i < fromInteger(valueOf(BflysPerStage)); i = i + 1)  begin
+            FftIdx idx = i * 4;
+            Vector#(4, ComplexData) x;
+            Vector#(4, ComplexData) twid;
+            for (FftIdx j = 0; j < 4; j = j + 1 ) begin
+                x[j] = stage_in[idx+j];
+                twid[j] = getTwiddle(stage, idx+j);
             end
+            let y = bfly[stage][i].bfly4(twid, x);
 
-            let bfly4_ret = bfly[stage][i].bfly4(dat, tw);
-            for (Integer k=0; k<4; k=k+1) begin
-                let idx =i*4 + k;
-                before_permute[idx] = bfly4_ret[k];
+            for(FftIdx j = 0; j < 4; j = j + 1 ) begin
+                stage_temp[idx+j] = y[j];
             end
-
         end
-        return permute(before_permute);
+
+        stage_out = permute(stage_temp);
+
+        return stage_out;
     endfunction
 
-    rule doFft;
-        if (inFifo.notEmpty) begin
-            let s1_ret = stage_f(0, inFifo.first);
-            sReg1 <= tagged Valid s1_ret;
-            inFifo.deq;
-        end else
-            sReg1 <= tagged Invalid;
+    rule stage0;
+        let data = inFifo.first;
+        inFifo.deq;
 
-        case (sReg1) matches
-            tagged Invalid : sReg2 <= tagged Invalid;
-            tagged Valid .d : begin
-                    let s2_ret = stage_f(1, d);
-                    sReg2 <= tagged Valid s2_ret;
-                end
-        endcase
+        let new_data = stage_f(0, data);
+        sReg1 <= tagged Valid new_data;
+    endrule
 
-        case (sReg2) matches
-            tagged Valid .d: begin
-                    let s3_ret = stage_f(2, d);
-                    outFifo.enq(s3_ret);
-                end
-        endcase
+    rule stage1 (sReg1 matches tagged Valid .data);
+        sReg1 <= tagged Invalid;
 
+        let new_data = stage_f(1, data);
+        sReg2 <= tagged Valid new_data;
+    endrule
+
+    rule stage2 (sReg2 matches tagged Valid .data);
+        sReg2 <= tagged Invalid;
+
+        let new_data = stage_f(2, data);
+        outFifo.enq(new_data);
     endrule
 
     method Action enq(Vector#(FftPoints, ComplexData) in);
