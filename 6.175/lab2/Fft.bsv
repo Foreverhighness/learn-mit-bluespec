@@ -195,10 +195,10 @@ endmodule
 
 (* synthesize *)
 module mkFftElasticPipeline(Fft);
-    Fifo#(3, Vector#(FftPoints, ComplexData)) inFifo <- mkFifo;
-    Fifo#(3, Vector#(FftPoints, ComplexData)) outFifo <- mkFifo;
-    Fifo#(3, Vector#(FftPoints, ComplexData)) fifo1 <- mkFifo;
-    Fifo#(3, Vector#(FftPoints, ComplexData)) fifo2 <- mkFifo;
+    Fifo#(2, Vector#(FftPoints, ComplexData)) inFifo <- mkCFFifo;
+    Fifo#(2, Vector#(FftPoints, ComplexData)) outFifo <- mkCFFifo;
+    Fifo#(2, Vector#(FftPoints, ComplexData)) fifo1 <- mkCFFifo;
+    Fifo#(2, Vector#(FftPoints, ComplexData)) fifo2 <- mkCFFifo;
 
     Vector#(3, Vector#(16, Bfly4)) bfly <- replicateM(replicateM(mkBfly4));
 
@@ -225,22 +225,28 @@ module mkFftElasticPipeline(Fft);
     endfunction
 
     // You should use more than one rule
-    rule in_to_fifo1;
-        let s0_ret = stage_f(0, inFifo.first);
-        fifo1.enq(s0_ret);
+    rule stage0;
+        let data = inFifo.first;
         inFifo.deq;
+
+        let new_data = stage_f(0, data);
+        fifo1.enq(new_data);
     endrule
 
-    rule fifo1_to_fifo2;
-        let s1_ret = stage_f(1, fifo1.first);
-        fifo2.enq(s1_ret);
+    rule stage1;
+        let data = fifo1.first;
         fifo1.deq;
+
+        let new_data = stage_f(1, data);
+        fifo2.enq(new_data);
     endrule
 
-    rule fifo2_to_outFifo;
-        let s2_ret = stage_f(2, fifo2.first);
-        outFifo.enq(s2_ret);
+    rule stage2;
+        let data = fifo2.first;
         fifo2.deq;
+
+        let new_data = stage_f(2, data);
+        outFifo.enq(new_data);
     endrule
 
     method Action enq(Vector#(FftPoints, ComplexData) in);
