@@ -66,7 +66,7 @@ module mkFftFold(Fft);
     FIFOF#(Vector#(FftPoints, ComplexData)) outFifo <- mkFIFOF;
     Vector#(BflysPerStage, Bfly4) bfly <- replicateM(mkBfly4);
 
-    Reg#(StageIdx) stage_idx <- mkReg('1);
+    Reg#(StageIdx) stage_idx <- mkReg(0);
     Reg#(Vector#(FftPoints, ComplexData)) stage_data <- mkRegU;
 
     function Vector#(FftPoints, ComplexData) stage_f(StageIdx stage, Vector#(FftPoints, ComplexData) stage_in);
@@ -91,38 +91,39 @@ module mkFftFold(Fft);
         return stage_out;
     endfunction
 
-    rule stage0 (stage_idx == 0);
+    rule foldedEntry (stage_idx == 0);
         stage_idx <= stage_idx + 1;
 
         let data = inFifo.first;
         inFifo.deq;
 
-        stage_data <= stage_f(stage_idx, data);
+        let new_data = stage_f(stage_idx, data);
+        stage_data <= new_data;
     endrule
 
-    rule stageN (0 < stage_idx && stage_idx < 3);
+    rule foldedCirculate (0 < stage_idx && stage_idx < fromInteger(valueOf(NumStages) - 1));
         stage_idx <= stage_idx + 1;
 
         let data = stage_data;
 
-        stage_data <= stage_f(stage_idx, data);
+        let new_data = stage_f(stage_idx, data);
+        stage_data <= new_data;
     endrule
 
-    rule stageFinal (stage_idx == 3);
-        stage_idx <= stage_idx + 1;
-
-        outFifo.enq(stage_data);
-    endrule
-
-    method Action enq(Vector#(FftPoints, ComplexData) in) if (stage_idx == '1);
+    rule foldedExit (stage_idx == fromInteger(valueOf(NumStages) - 1));
         stage_idx <= 0;
 
+        let data = stage_data;
+
+        let new_data = stage_f(stage_idx, data);
+        outFifo.enq(new_data);
+    endrule
+
+    method Action enq(Vector#(FftPoints, ComplexData) in);
         inFifo.enq(in);
     endmethod
 
-    method ActionValue#(Vector#(FftPoints, ComplexData)) deq if (stage_idx == 4);
-        stage_idx <= '1;
-
+    method ActionValue#(Vector#(FftPoints, ComplexData)) deq;
         outFifo.deq;
         return outFifo.first;
     endmethod
