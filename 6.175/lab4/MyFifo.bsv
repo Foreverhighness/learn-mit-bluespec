@@ -182,6 +182,92 @@ endmodule
 // Intended schedule:
 //      {notFull, enq} CF {notEmpty, first, deq}
 //      {notFull, enq, notEmpty, first, deq} < clear
+module mkMyCFNCFifo( Fifo#(n, t) ) provisos (Bits#(t,tSz));
+    // n is size of fifo
+    // t is data type of fifo
+    Vector#(n, Reg#(t))     queue    <- replicateM(mkRegU);
+    Reg#(Bit#(TLog#(n)))    front    <- mkReg(0);
+    Reg#(Bit#(TLog#(n)))    rear     <- mkReg(0);
+    Reg#(Bool)              empty    <- mkReg(True);
+    Reg#(Bool)              full     <- mkReg(False);
+
+    Ehr#(2, Maybe#(t))      enq_request  <- mkEhr(Invalid);
+    Ehr#(2, Bool)           deq_request  <- mkEhr(False);
+
+    // useful value
+    Bit#(TLog#(n))          max_index = fromInteger(valueOf(n)-1);
+
+    (* no_implicit_conditions, fire_when_enabled *)
+    rule canonicalize;
+        let new_front = front == max_index ? 0 : front + 1;
+        let new_rear = rear == max_index ? 0 : rear + 1;
+
+        case (enq_request[1]) matches
+            tagged Valid .data: begin
+                queue[rear] <= data;
+                rear <= new_rear;
+            end
+            default: noAction;
+        endcase
+
+        if (deq_request[1]) begin
+            front <= new_front;
+        end
+
+        case (tuple2( isValid(enq_request[1]), deq_request[1] )) matches
+            // Only enqueue
+            {True, False}: begin
+                full <= new_rear == front;
+                empty <= False;
+            end
+            // Only dequeue
+            {False, True}: begin
+                full <= False;
+                empty <= new_front == rear;
+            end
+            default: noAction;
+        endcase
+
+        enq_request[1] <= Invalid;
+        deq_request[1] <= False;
+    endrule
+
+    method Bool notFull;
+        return !full;
+    endmethod
+
+    method Action enq(t x) if (!full);
+        enq_request[0] <= tagged Valid x;
+    endmethod
+
+    method Bool notEmpty;
+        return !empty;
+    endmethod
+
+    method Action deq if (!empty);
+        deq_request[0] <= True;
+    endmethod
+
+    method t first if (!empty);
+        return queue[front];
+    endmethod
+
+    method Action clear;
+        rear <= 0;
+        front <= 0;
+
+        full <= False;
+        empty <= True;
+    endmethod
+endmodule
+
+
+//////////////////////
+// Conflict free fifo
+
+// Intended schedule:
+//      {notFull, enq} CF {notEmpty, first, deq}
+//      {notFull, enq, notEmpty, first, deq} < clear
 module mkMyCFFifo( Fifo#(n, t) ) provisos (Bits#(t,tSz));
     // n is size of fifo
     // t is data type of fifo
