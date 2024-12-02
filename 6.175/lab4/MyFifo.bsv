@@ -182,291 +182,86 @@ endmodule
 // Intended schedule:
 //      {notFull, enq} CF {notEmpty, first, deq}
 //      {notFull, enq, notEmpty, first, deq} < clear
-// module mkMyCFFifo( Fifo#(n, t) ) provisos (Bits#(t,tSz));
-//     // n is size of fifo
-//     // t is data type of fifo
-//     Vector#(n, Reg#(t))       data     <- replicateM(mkRegU());
-//     Ehr#(2,Bit#(TLog#(n)))    enqP     <- mkEhr(0);
-//     Ehr#(2,Bit#(TLog#(n)))    deqP     <- mkEhr(0);
-//     Ehr#(2,Bool)              empty    <- mkEhr(True);
-//     Ehr#(2,Bool)              full     <- mkEhr(False);
-
-//     Ehr#(2, Bool)         deqReq  <- mkEhr(False);
-//     Ehr#(2, Maybe#(t))    enqReq  <- mkEhr(tagged Invalid);
-
-//     // useful value
-//     Bit#(TLog#(n))          max_index = fromInteger(valueOf(n)-1);
-
-//     // TODO: Implement all the methods for this module
-
-//     (* no_implicit_conditions *)
-//     (* fire_when_enabled *)
-//     rule canonicalize (True);
-//         deqReq[1] <= False;
-//         enqReq[1] <= tagged Invalid;
-
-//         Bit#(TLog#(n)) newdeqP = 0;
-//         if (deqP[0] == max_index) begin
-//             newdeqP = 0;
-//         end else begin
-//             newdeqP = deqP[0] + 1;
-//         end
-
-//         Bit#(TLog#(n)) newenqP = 0;
-//         if (enqP[0] == max_index) begin
-//             newenqP = 0;
-//         end else begin
-//             newenqP = enqP[0] + 1;
-//         end
-
-//         case (tuple2(enqReq[1], deqReq[1])) matches
-//             {tagged Valid .dat, True}: begin
-//                 enqP[0] <= newenqP;
-//                 deqP[0] <= newdeqP;
-//                 data[enqP[0]] <= dat;
-//             end
-//             {tagged Valid .dat, False}: begin
-//                 enqP[0] <= newenqP;
-//                 data[enqP[0]] <= dat;
-//                 full[0] <= (newenqP == deqP[0]);
-//                 empty[0] <= False;
-//             end
-//             {tagged Invalid, True}: begin
-//                 deqP[0] <= newdeqP;
-//                 empty[0] <= (newdeqP == enqP[1]);
-//                 full[0] <= False;
-//             end
-//             default: begin end
-//         endcase
-
-
-
-//     endrule
-
-//     method Bool notFull;
-//         return !full[0];
-//     endmethod
-
-//     method Action enq(t x) if (full[0]==False);
-//         enqReq[0] <= tagged Valid x;
-//     endmethod
-
-//     method Bool notEmpty;
-//         return !empty[0];
-//     endmethod
-
-//     method Action deq if (empty[0]==False);
-//         deqReq[0] <= True;
-//     endmethod
-
-
-//     method t first if (empty[0]==False);
-//         return data[deqP[0]];  // Why use deqP[1] will lead to compile error?
-//     endmethod
-
-//     // method Action clear;
-//     //     // enqP[2] <= 0;
-//     //     // deqP[2] <= 0;
-//     //     // empty[2] <= True;
-//     //     // full[2] <= False;
-//     // endmethod
-
-
-// endmodule
-
-
-
-
-// module mkMyCFFifo( Fifo#(n, t) ) provisos (Bits#(t,tSz));
-//     // n is size of fifo
-//     // t is data type of fifo
-//     Vector#(n, Reg#(t))       data     <- replicateM(mkRegU());
-//     Ehr#(2,Bit#(TLog#(n)))    enqP     <- mkEhr(0);
-//     Ehr#(2,Bit#(TLog#(n)))    deqP     <- mkEhr(0);
-//     Ehr#(2,Bool)              empty    <- mkEhr(True);
-//     Ehr#(2,Bool)              full     <- mkEhr(False);
-
-//     Ehr#(2, Bool)         deqReq  <- mkEhr(False);
-//     Ehr#(2, Maybe#(t))    enqReq  <- mkEhr(tagged Invalid);
-//     Ehr#(2, Bool)         clearReq  <- mkEhr(False);
-
-//     // useful value
-//     Bit#(TLog#(n))          max_index = fromInteger(valueOf(n)-1);
-
-//     // TODO: Implement all the methods for this module
-
-//     (* no_implicit_conditions *)
-//     (* fire_when_enabled *)
-//     rule canonicalize (True);
-//         deqReq[1] <= False;
-//         enqReq[1] <= tagged Invalid;
-//         clearReq[1] <= False;
-
-
-//         Bit#(TLog#(n)) newdeqP = 0;
-//         if (deqP[0] == max_index) begin
-//             newdeqP = 0;
-//         end else begin
-//             newdeqP = deqP[0] + 1;
-//         end
-
-//         Bit#(TLog#(n)) newenqP = 0;
-//         if (enqP[0] == max_index) begin
-//             newenqP = 0;
-//         end else begin
-//             newenqP = enqP[0] + 1;
-//         end
-
-//         case (tuple3(enqReq[1], deqReq[1], clearReq[1])) matches
-//             {tagged Valid .dat, True, False}: begin
-//                 enqP[0] <= newenqP;
-//                 deqP[0] <= newdeqP;
-//                 data[enqP[0]] <= dat;
-//             end
-//             {tagged Valid .dat, False, False}: begin
-//                 enqP[0] <= newenqP;
-//                 data[enqP[0]] <= dat;
-//                 full[0] <= (newenqP == deqP[0]);
-//                 empty[0] <= False;
-//             end
-//             {tagged Invalid, True, False}: begin
-//                 deqP[0] <= newdeqP;
-//                 empty[0] <= (newdeqP == enqP[1]);
-//                 full[0] <= False;
-//             end
-//             {.*, .*, True}: begin
-//                 enqP[0] <= 0;
-//                 deqP[0] <= 0;
-//                 empty[0] <= True;
-//                 full[0] <= False;
-//             end
-//             default: begin end
-//         endcase
-
-//     endrule
-
-//     method Bool notFull;
-//         return !full[0];
-//     endmethod
-
-//     method Action enq(t x) if (full[0]==False);
-//         enqReq[0] <= tagged Valid x;
-//     endmethod
-
-//     method Bool notEmpty;
-//         return !empty[0];
-//     endmethod
-
-//     method Action deq if (empty[0]==False);
-//         deqReq[0] <= True;
-//     endmethod
-
-
-//     method t first if (empty[0]==False);
-//         return data[deqP[0]];  // Why use deqP[1] will lead to compile error?
-//     endmethod
-
-//     method Action clear;
-//         clearReq[0] <= True;
-//     endmethod
-
-
-// endmodule
-
-
-
 module mkMyCFFifo( Fifo#(n, t) ) provisos (Bits#(t,tSz));
     // n is size of fifo
     // t is data type of fifo
-    Vector#(n, Reg#(t))     data     <- replicateM(mkRegU());
-    Reg#(Bit#(TLog#(n)))    enqP     <- mkReg(0);
-    Reg#(Bit#(TLog#(n)))    deqP     <- mkReg(0);
+    Vector#(n, Reg#(t))     queue    <- replicateM(mkRegU);
+    Reg#(Bit#(TLog#(n)))    front    <- mkReg(0);
+    Reg#(Bit#(TLog#(n)))    rear     <- mkReg(0);
     Reg#(Bool)              empty    <- mkReg(True);
     Reg#(Bool)              full     <- mkReg(False);
 
-    Ehr#(2, Bool)         deqReq  <- mkEhr(False);
-    Ehr#(2, Maybe#(t))    enqReq  <- mkEhr(tagged Invalid);
-    Ehr#(2, Bool)         clearReq  <- mkEhr(False);
+    Ehr#(2, Maybe#(t))      enq_request  <- mkEhr(Invalid);
+    Ehr#(2, Bool)           deq_request  <- mkEhr(False);
+    Ehr#(2, Bool)           clr_request  <- mkEhr(False);
 
     // useful value
     Bit#(TLog#(n))          max_index = fromInteger(valueOf(n)-1);
 
-    // TODO: Implement all the methods for this module
+    (* no_implicit_conditions, fire_when_enabled *)
+    rule canonicalize;
+        let new_front = front == max_index ? 0 : front + 1;
+        let new_rear = rear == max_index ? 0 : rear + 1;
 
-    (* no_implicit_conditions *)
-    (* fire_when_enabled *)
-    rule canonicalize (True);
-        deqReq[1] <= False;
-        enqReq[1] <= tagged Invalid;
-        clearReq[1] <= False;
+        case (tuple3( enq_request[1], deq_request[1], clr_request[1] )) matches
+            // Handle clear first
+            {.*, .*, True}: begin
+                rear <= 0;
+                front <= 0;
 
-
-        Bit#(TLog#(n)) newdeqP = 0;
-        if (deqP == max_index) begin
-            newdeqP = 0;
-        end else begin
-            newdeqP = deqP + 1;
-        end
-
-        Bit#(TLog#(n)) newenqP = 0;
-        if (enqP == max_index) begin
-            newenqP = 0;
-        end else begin
-            newenqP = enqP + 1;
-        end
-
-        case (tuple3(enqReq[1], deqReq[1], clearReq[1])) matches
-            {tagged Valid .dat, True, False}: begin
-                enqP <= newenqP;
-                deqP <= newdeqP;
-                data[enqP] <= dat;
+                full <= False;
+                empty <= True;
             end
-            {tagged Valid .dat, False, False}: begin
-                enqP <= newenqP;
-                data[enqP] <= dat;
-                full <= (newenqP == deqP);
+            // Only enqueue
+            {tagged Valid .data, False, False}: begin
+                queue[rear] <= data;
+                rear <= new_rear;
+
+                full <= new_rear == front;
                 empty <= False;
             end
-            {tagged Invalid, True, False}: begin
-                deqP <= newdeqP;
-                empty <= (newdeqP == enqP);
+            // Only dequeue
+            {Invalid, True, False}: begin
+                front <= new_front;
+
                 full <= False;
+                empty <= new_front == rear;
             end
-            {.*, .*, True}: begin
-                enqP <= 0;
-                deqP <= 0;
-                empty <= True;
-                full <= False;
+            // Both
+            {tagged Valid .data, True, False}: begin
+                queue[rear] <= data;
+                rear <= new_rear;
+
+                front <= new_front;
             end
-            default: begin end
         endcase
 
+        enq_request[1] <= Invalid;
+        deq_request[1] <= False;
+        clr_request[1] <= False;
     endrule
 
     method Bool notFull;
         return !full;
     endmethod
 
-    method Action enq(t x) if (full==False);
-        enqReq[0] <= tagged Valid x;
+    method Action enq(t x) if (!full);
+        enq_request[0] <= tagged Valid x;
     endmethod
 
     method Bool notEmpty;
         return !empty;
     endmethod
 
-    method Action deq if (empty==False);
-        deqReq[0] <= True;
+    method Action deq if (!empty);
+        deq_request[0] <= True;
     endmethod
 
-
-    method t first if (empty==False);
-        return data[deqP];  // Why use deqP[1] will lead to compile error?
+    method t first if (!empty);
+        return queue[front];
     endmethod
 
     method Action clear;
-        clearReq[0] <= True;
+        clr_request[0] <= True;
     endmethod
-
-
 endmodule
