@@ -68,6 +68,12 @@ module mkTestBench#(Fft fft)();
 endmodule
 
 (* synthesize *)
+module mkTbFftFold();
+    let fft <- mkFftFold;
+    mkTestBench(fft);
+endmodule
+
+(* synthesize *)
 module mkTbFftInelasticPipeline();
     let fft <- mkFftInelasticPipeline;
     mkTestBench(fft);

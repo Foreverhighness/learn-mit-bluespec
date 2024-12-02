@@ -3,8 +3,12 @@ compile:
 	bsc -u -sim -bdir buildDir -info-dir buildDir -simdir buildDir -vdir buildDir -aggressive-conditions -show-range-conflict TestBench.bsv
 
 fifo: compile
-	bsc -sim -e mkTestBenchFifo -bdir buildDir -info-dir buildDir -simdir buildDir -o buildDir/simFifo 
+	bsc -sim -e mkTestBenchFifo -bdir buildDir -info-dir buildDir -simdir buildDir -o buildDir/simFifo
 	./buildDir/simFifo
+
+fold: compile
+	bsc -sim -e mkTbFftFold -bdir buildDir -info-dir buildDir -simdir buildDir -o buildDir/simFold
+	./buildDir/simFold
 
 inelastic: compile
 	bsc -sim -e mkTbFftInelasticPipeline -bdir buildDir -info-dir buildDir -simdir buildDir -o buildDir/simInelastic
