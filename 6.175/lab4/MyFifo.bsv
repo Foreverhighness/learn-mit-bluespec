@@ -271,11 +271,11 @@ endmodule
 module mkMyCFFifo( Fifo#(n, t) ) provisos (Bits#(t,tSz));
     // n is size of fifo
     // t is data type of fifo
-    Vector#(n, Reg#(t))     queue    <- replicateM(mkRegU);
-    Reg#(Bit#(TLog#(n)))    front    <- mkReg(0);
-    Reg#(Bit#(TLog#(n)))    rear     <- mkReg(0);
-    Reg#(Bool)              empty    <- mkReg(True);
-    Reg#(Bool)              full     <- mkReg(False);
+    Vector#(n, Reg#(t))        queue    <- replicateM(mkRegU);
+    Ehr#(2, Bit#(TLog#(n)))    front    <- mkEhr(0);
+    Ehr#(2, Bit#(TLog#(n)))    rear     <- mkEhr(0);
+    Ehr#(2, Bool)              empty    <- mkEhr(True);
+    Ehr#(2, Bool)              full     <- mkEhr(False);
 
     Ehr#(2, Maybe#(t))      enq_request  <- mkEhr(Invalid);
     Ehr#(2, Bool)           deq_request  <- mkEhr(False);
@@ -286,41 +286,42 @@ module mkMyCFFifo( Fifo#(n, t) ) provisos (Bits#(t,tSz));
 
     (* no_implicit_conditions, fire_when_enabled *)
     rule canonicalize;
-        let new_front = front == max_index ? 0 : front + 1;
-        let new_rear = rear == max_index ? 0 : rear + 1;
+        let new_front = front[0] == max_index ? 0 : front[0] + 1;
+        let new_rear = rear[0] == max_index ? 0 : rear[0] + 1;
 
-        case (tuple3( enq_request[1], deq_request[1], clr_request[1] )) matches
-            // Handle clear first
-            {.*, .*, True}: begin
-                rear <= 0;
-                front <= 0;
-
-                full <= False;
-                empty <= True;
+        case (enq_request[1]) matches
+            tagged Valid .data: begin
+                queue[rear[0]] <= data;
+                rear[0] <= new_rear;
             end
-            // Only enqueue
-            {tagged Valid .data, False, False}: begin
-                queue[rear] <= data;
-                rear <= new_rear;
+            default: noAction;
+        endcase
 
-                full <= new_rear == front;
-                empty <= False;
+        if (deq_request[1]) begin
+            front[0] <= new_front;
+        end
+
+        case (tuple2( isValid(enq_request[1]), deq_request[1] )) matches
+            // Only enqueue
+            {True, False}: begin
+                full[0] <= new_rear == front[0];
+                empty[0] <= False;
             end
             // Only dequeue
-            {Invalid, True, False}: begin
-                front <= new_front;
-
-                full <= False;
-                empty <= new_front == rear;
+            {False, True}: begin
+                full[0] <= False;
+                empty[0] <= new_front == rear[0];
             end
-            // Both
-            {tagged Valid .data, True, False}: begin
-                queue[rear] <= data;
-                rear <= new_rear;
-
-                front <= new_front;
-            end
+            default: noAction;
         endcase
+
+        if (clr_request[1]) begin
+            rear[1] <= 0;
+            front[1] <= 0;
+
+            full[1] <= False;
+            empty[1] <= True;
+        end
 
         enq_request[1] <= Invalid;
         deq_request[1] <= False;
@@ -328,23 +329,23 @@ module mkMyCFFifo( Fifo#(n, t) ) provisos (Bits#(t,tSz));
     endrule
 
     method Bool notFull;
-        return !full;
+        return !full[0];
     endmethod
 
-    method Action enq(t x) if (!full);
+    method Action enq(t x) if (!full[0]);
         enq_request[0] <= tagged Valid x;
     endmethod
 
     method Bool notEmpty;
-        return !empty;
+        return !empty[0];
     endmethod
 
-    method Action deq if (!empty);
+    method Action deq if (!empty[0]);
         deq_request[0] <= True;
     endmethod
 
-    method t first if (!empty);
-        return queue[front];
+    method t first if (!empty[0]);
+        return queue[front[0]];
     endmethod
 
     method Action clear;
