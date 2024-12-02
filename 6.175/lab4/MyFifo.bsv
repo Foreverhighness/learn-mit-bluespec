@@ -129,59 +129,48 @@ endmodule
 module mkMyBypassFifo( Fifo#(n, t) ) provisos (Bits#(t,tSz));
     // n is size of fifo
     // t is data type of fifo
-    Vector#(n, Ehr#(2, t))       data     <- replicateM(mkEhrU());  // Important
-    Ehr#(3,Bit#(TLog#(n)))    enqP     <- mkEhr(0);
-    Ehr#(3,Bit#(TLog#(n)))    deqP     <- mkEhr(0);
-    Ehr#(3,Bool)              empty    <- mkEhr(True);
-    Ehr#(3,Bool)              full     <- mkEhr(False);
+    Vector#(n, Ehr#(2, t))      queue    <- replicateM(mkEhr(?));
+    Ehr#(3, Bit#(TLog#(n)))     front    <- mkEhr(0);
+    Ehr#(3, Bit#(TLog#(n)))     rear     <- mkEhr(0);
+    Ehr#(3, Bool)               empty    <- mkEhr(True);
+    Ehr#(3, Bool)               full     <- mkEhr(False);
 
     // useful value
     Bit#(TLog#(n))          max_index = fromInteger(valueOf(n)-1);
 
     // TODO: Implement all the methods for this module
-
     method Bool notFull;
         return !full[0];
     endmethod
 
-    method Action enq(t x) if (full[0]==False);
+    method Action enq(t x) if (!full[0]);
+        let new_rear = rear[0] == max_index ? 0 : rear[0] + 1;
 
-        Bit#(TLog#(n)) newP = 0;
-        if (enqP[0] == max_index) begin
-            newP = 0;
-        end else begin
-            newP = enqP[0] + 1;
-        end
-        enqP[0] <= newP;
-        full[0] <= (newP == deqP[0]);
+        queue[rear[0]][0] <= x;
+        rear[0] <= new_rear;
+        full[0] <= new_rear == front[0];
         empty[0] <= False;
-        data[enqP[0]][0] <= x;
     endmethod
 
     method Bool notEmpty;
         return !empty[1];
     endmethod
 
-    method Action deq if (empty[1]==False);
-        Bit#(TLog#(n)) newP = 0;
-        if (deqP[1] == max_index) begin
-            newP = 0;
-        end else begin
-            newP = deqP[1] + 1;
-        end
-        deqP[1] <= newP;
+    method Action deq if (!empty[1]);
+        let new_front = front[1] == max_index ? 0 : front[1] + 1;
 
-        empty[1] <= (newP == enqP[1]);
+        front[1] <= new_front;
         full[1] <= False;
+        empty[1] <= new_front == rear[1];
     endmethod
 
-    method t first if (empty[1]==False);
-        return data[deqP[1]][1];
+    method t first if (!empty[1]);
+        return queue[front[1]][1];
     endmethod
 
     method Action clear;
-        enqP[2] <= 0;
-        deqP[2] <= 0;
+        front[2] <= 0;
+        rear[2] <= 0;
         empty[2] <= True;
         full[2] <= False;
     endmethod
