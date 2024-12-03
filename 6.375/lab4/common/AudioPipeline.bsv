@@ -15,15 +15,16 @@ import Overlayer::*;
 
 import FilterCoefficients::*;
 
+(* synthesize *)
 module mkAudioPipeline(AudioProcessor);
-    AudioProcessor                          fir           <- mkFIRFilter(c);
+    AudioProcessor                          fir           <- mkFIRFilter_AudioPipeline();
     Chunker#(2, Sample)                     chunker       <- mkChunker();
     OverSampler#(2, FFT_POINTS, Sample)     over_sampler  <- mkOverSampler(replicate(0));
-    FFT#(FFT_POINTS, FixedPoint#(16, 16))   fft           <- mkFFT();
-    ToMP#(FFT_POINTS, 16, 16, 16)           to_mp         <- mkToMP();
-    PitchAdjust#(FFT_POINTS, 16, 16, 16)    pitch_adjust  <- mkPitchAdjust(2, 2);
-    FromMP#(FFT_POINTS, 16, 16, 16)         from_mp       <- mkFromMP();
-    FFT#(FFT_POINTS, FixedPoint#(16, 16))   ifft          <- mkIFFT();
+    FFT#(FFT_POINTS, FixedPoint#(16, 16))   fft           <- mkFFT_AudioPipeline();
+    ToMP#(FFT_POINTS, 16, 16, 16)           to_mp         <- mkToMP_AudioPipeline();
+    PitchAdjust#(FFT_POINTS, 16, 16, 16)    pitch_adjust  <- mkPitchAdjust_AudioPipeline();
+    FromMP#(FFT_POINTS, 16, 16, 16)         from_mp       <- mkFromMP_AudioPipeline();
+    FFT#(FFT_POINTS, FixedPoint#(16, 16))   ifft          <- mkIFFT_AudioPipeline();
     Overlayer#(FFT_POINTS, 2, Sample)       over_layer    <- mkOverlayer(replicate(0));
     Splitter#(2, Sample)                    splitter      <- mkSplitter();
 
@@ -83,3 +84,39 @@ module mkAudioPipeline(AudioProcessor);
     endmethod
 endmodule
 
+
+(* synthesize *)
+module mkFIRFilter_AudioPipeline(AudioProcessor);
+    AudioProcessor ret <- mkFIRFilter(c);
+    return ret;
+endmodule
+
+(* synthesize *)
+module mkFFT_AudioPipeline(FFT#(FFT_POINTS, FixedPoint#(16, 16)));
+    FFT#(FFT_POINTS, FixedPoint#(16, 16)) ret <- mkFFT();
+    return ret;
+endmodule
+
+(* synthesize *)
+module mkToMP_AudioPipeline(ToMP#(FFT_POINTS, 16, 16, 16));
+    ToMP#(FFT_POINTS, 16, 16, 16) ret <- mkToMP();
+    return ret;
+endmodule
+
+(* synthesize *)
+module mkPitchAdjust_AudioPipeline(PitchAdjust#(FFT_POINTS, 16, 16, 16));
+    PitchAdjust#(FFT_POINTS, 16, 16, 16) ret <- mkPitchAdjust(2, 2);
+    return ret;
+endmodule
+
+(* synthesize *)
+module mkFromMP_AudioPipeline(FromMP#(FFT_POINTS, 16, 16, 16));
+    FromMP#(FFT_POINTS, 16, 16, 16) ret <- mkFromMP();
+    return ret;
+endmodule
+
+(* synthesize *)
+module mkIFFT_AudioPipeline(FFT#(FFT_POINTS, FixedPoint#(16, 16)));
+    FFT#(FFT_POINTS, FixedPoint#(16, 16)) ret <- mkIFFT();
+    return ret;
+endmodule
