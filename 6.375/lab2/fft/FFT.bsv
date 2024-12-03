@@ -131,58 +131,54 @@ module mkCombinationalFFT (FFT);
 endmodule
 
 module mkLinearFFT (FFT);
-  // Statically generate the twiddle factors table.
-  TwiddleTable twiddles = genTwiddles();
+    // Statically generate the twiddle factors table.
+    TwiddleTable twiddles = genTwiddles();
 
-  // Define the stage_f function which uses the generated twiddles.
-  function Vector#(FFT_POINTS, ComplexSample) stage_f(Bit#(TLog#(FFT_LOG_POINTS)) stage, Vector#(FFT_POINTS, ComplexSample) stage_in);
-      return stage_ft(twiddles, stage, stage_in);
-  endfunction
+    // Define the stage_f function which uses the generated twiddles.
+    function Vector#(FFT_POINTS, ComplexSample) stage_f(Bit#(TLog#(FFT_LOG_POINTS)) stage, Vector#(FFT_POINTS, ComplexSample) stage_in);
+        return stage_ft(twiddles, stage, stage_in);
+    endfunction
 
-  FIFO#(Vector#(FFT_POINTS, ComplexSample)) inputFIFO  <- mkFIFO();
-  FIFO#(Vector#(FFT_POINTS, ComplexSample)) outputFIFO <- mkFIFO();
+    FIFO#(Vector#(FFT_POINTS, ComplexSample)) inputFIFO  <- mkFIFO();
+    FIFO#(Vector#(FFT_POINTS, ComplexSample)) outputFIFO <- mkFIFO();
 
-  Vector#(FFT_LOG_POINTS, Reg#(Maybe#(Vector#(FFT_POINTS, ComplexSample)))) stage_data <- replicateM(mkReg(tagged Invalid));
+    Vector#(FFT_LOG_POINTS, FIFO#(Vector#(FFT_POINTS, ComplexSample))) stage_data <- replicateM(mkFIFO());
 
-  Bit#(TLog#(FFT_LOG_POINTS)) max_stage = fromInteger(valueOf(FFT_LOG_POINTS) - 1);
+    Bit#(TLog#(FFT_LOG_POINTS)) max_stage = fromInteger(valueOf(FFT_LOG_POINTS) - 1);
 
-  // This rule performs fft using multi-stage.
-  rule stage0 (!isValid(stage_data[0]));
-    let data = inputFIFO.first();
-    inputFIFO.deq();
+    // This rule performs fft using multi-stage.
+    rule stage0 (True);
+        let data = inputFIFO.first();
+        inputFIFO.deq();
 
-    let stage_out = stage_f(0, data);
-    stage_data[0] <= tagged Valid stage_out;
-  endrule
+        let stage_out = stage_f(0, data);
+        stage_data[0].enq(stage_out);
+    endrule
 
-  rule stageN (True);
     for (Integer stage = 1; stage < valueOf(FFT_LOG_POINTS); stage = stage + 1) begin
-        case (tuple2(stage_data[stage - 1], isValid(stage_data[stage]))) matches
-            {tagged Valid .data, False}: begin
-                stage_data[stage - 1] <= tagged Invalid;
+        rule stage_i (True);
+            let data = stage_data[stage - 1].first();
+            stage_data[stage - 1].deq();
 
-                let stage_out = stage_f(fromInteger(stage), data);
-                stage_data[stage] <= tagged Valid stage_out;
-            end
-            default: noAction;
-        endcase
+            let stage_out = stage_f(fromInteger(stage), data);
+            stage_data[stage].enq(stage_out);
+        endrule
     end
-  endrule
 
-  rule stageFinal (isValid(stage_data[max_stage]));
-    let data = fromMaybe(?, stage_data[max_stage]);
-    stage_data[max_stage] <= tagged Invalid;
+    rule stageFinal (True);
+        let data = stage_data[max_stage].first();
+        stage_data[max_stage].deq();
 
-    outputFIFO.enq(data);
-  endrule
+        outputFIFO.enq(data);
+    endrule
 
-  interface Put request;
-    method Action put(Vector#(FFT_POINTS, ComplexSample) x);
-        inputFIFO.enq(bitReverse(x));
-    endmethod
-  endinterface
+    interface Put request;
+        method Action put(Vector#(FFT_POINTS, ComplexSample) x);
+            inputFIFO.enq(bitReverse(x));
+        endmethod
+    endinterface
 
-  interface Get response = toGet(outputFIFO);
+    interface Get response = toGet(outputFIFO);
 endmodule
 
 // Wrapper around The FFT module we actually want to use
