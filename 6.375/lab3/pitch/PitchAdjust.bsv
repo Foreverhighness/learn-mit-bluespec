@@ -26,6 +26,14 @@ module mkPitchAdjust(Integer s, FixedPoint#(isize, fsize) factor, PitchAdjust#(n
     Reg#(Vector#(nbins, Phase#(psize))) in_phase   <- mkReg(replicate(0));
     Vector#(nbins, Reg#(Phase#(psize))) out_phase  <- replicateM(mkReg(0));
 
+    function Int#(TAdd#(TAdd#(TLog#(nbins), 2), isize)) get_bin(Integer i);
+        FixedPoint#(TAdd#(TLog#(nbins), 2), 0) fxpt_i = fromInteger(i);
+        let bin = fxptGetInt(fxptMult(fxpt_i, factor));
+        return bin;
+    endfunction
+
+    Vector#(TAdd#(nbins, 1), Int#(TAdd#(TAdd#(TLog#(nbins), 2), isize))) all_bins = genWith(get_bin);
+
     rule pitch_adjust (True);
         let in = inputFIFO.first();
         inputFIFO.deq();
@@ -36,8 +44,8 @@ module mkPitchAdjust(Integer s, FixedPoint#(isize, fsize) factor, PitchAdjust#(n
         for (Integer i = 0; i < valueOf(nbins); i = i + 1) begin
             new_in_phase[i] = in[i].phase;
 
-            let bin = fxptGetInt(fromInteger(i) * factor);
-            let nbin = fxptGetInt(fromInteger(i + 1) * factor);
+            let bin = all_bins[fromInteger(i)];
+            let nbin = all_bins[fromInteger(i + 1)];
 
             if (bin != nbin && 0 <= bin && bin < fromInteger(valueOf(nbins))) begin
                 let diff_phase = in[i].phase - in_phase[i];
