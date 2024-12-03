@@ -8,9 +8,11 @@ import FFT::*;
 import FIRFilter::*;
 import Splitter::*;
 
+import FilterCoefficients::*;
+
 module mkAudioPipeline(AudioProcessor);
 
-    AudioProcessor fir <- mkFIRFilter();
+    AudioProcessor fir <- mkFIRFilter(c);
     Chunker#(FFT_POINTS, ComplexSample) chunker <- mkChunker();
     FFT fft <- mkFFT();
     FFT ifft <- mkIFFT();
@@ -37,7 +39,7 @@ module mkAudioPipeline(AudioProcessor);
         let x <- ifft.response.get();
         splitter.request.put(x);
     endrule
-    
+
     method Action putSampleInput(Sample x);
         $display("putSampleInput");
         fir.putSampleInput(x);
