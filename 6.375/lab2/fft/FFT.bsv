@@ -182,9 +182,64 @@ module mkLinearFFT (FFT);
     interface Get response = toGet(outputFIFO);
 endmodule
 
+module mkCircularFFT (FFT);
+    // Statically generate the twiddle factors table.
+    TwiddleTable twiddles = genTwiddles();
+
+    // Define the stage_f function which uses the generated twiddles.
+    function Vector#(FFT_POINTS, ComplexSample) stage_f(Bit#(TLog#(FFT_LOG_POINTS)) stage, Vector#(FFT_POINTS, ComplexSample) stage_in);
+        return stage_ft(twiddles, stage, stage_in);
+    endfunction
+
+    FIFO#(Vector#(FFT_POINTS, ComplexSample)) inputFIFO  <- mkFIFO();
+    FIFO#(Vector#(FFT_POINTS, ComplexSample)) outputFIFO <- mkFIFO();
+
+    Reg#(Vector#(FFT_POINTS, ComplexSample))  stage_data <- mkRegU();
+    Reg#(Bit#(TLog#(FFT_LOG_POINTS)))         stage      <- mkReg(0);
+
+    Bit#(TLog#(FFT_LOG_POINTS))               stage_final = fromInteger(valueOf(FFT_LOG_POINTS) - 1);
+
+    // This rule performs fft using multi-stage.
+    rule stage0 (stage == 0);
+        let data = inputFIFO.first();
+        inputFIFO.deq();
+
+        let stage_out = stage_f(stage, data);
+        stage_data <= stage_out;
+
+        stage <= stage + 1;
+    endrule
+
+    rule stage_i (0 != stage && stage != stage_final);
+        let data = stage_data;
+
+        let stage_out = stage_f(stage, data);
+        stage_data <= stage_out;
+
+        stage <= stage + 1;
+    endrule
+
+    rule stageFinal (stage == stage_final);
+        let data = stage_data;
+
+        let stage_out = stage_f(stage, data);
+        outputFIFO.enq(stage_out);
+
+        stage <= 0;
+    endrule
+
+    interface Put request;
+        method Action put(Vector#(FFT_POINTS, ComplexSample) x);
+            inputFIFO.enq(bitReverse(x));
+        endmethod
+    endinterface
+
+    interface Get response = toGet(outputFIFO);
+endmodule
+
 // Wrapper around The FFT module we actually want to use
 module mkFFT (FFT);
-    FFT fft <- mkLinearFFT();
+    FFT fft <- mkCircularFFT();
 
     interface Put request = fft.request;
     interface Get response = fft.response;
