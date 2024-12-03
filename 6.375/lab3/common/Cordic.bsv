@@ -343,6 +343,7 @@ endmodule
 
 typedef 8 TESTBIN;
 
+// THIS TEST WILL FIAL!!! BECAUSE `mkCordicTest` ALSO FAIL!!!
 // Unit tests for `ToMP` and `FromMP`
 (* synthesize *)
 module mkToFromMPTest (Empty);
@@ -377,8 +378,8 @@ module mkToFromMPTest (Empty);
             let x <- to_mp.response.get();
             if (x != want) begin
                 $display("want: ", fshow(want));
-                $display("mid : ", fshow(res[check]));
                 $display("get : ", fshow(x));
+                $display("mid : ", fshow(res[check]));
                 passed <= False;
             end
             check <= check + 1;
@@ -388,14 +389,22 @@ module mkToFromMPTest (Empty);
     // function Action docheck
 
     Vector#(TESTBIN, ComplexMP#(16, 16, 16)) ti1 = newVector;
-    ti1[0] = cmplxmp(1.000000, tophase(3.141593));
-    ti1[1] = cmplxmp(1.000000, tophase(-1.570796));
-    ti1[2] = cmplxmp(1.000000, tophase(0.000000));
-    ti1[3] = cmplxmp(1.000000, tophase(1.570796));
-    ti1[4] = cmplxmp(1.000000, tophase(3.141593));
-    ti1[5] = cmplxmp(1.000000, tophase(-1.570796));
-    ti1[6] = cmplxmp(1.000000, tophase(0.000000));
-    ti1[7] = cmplxmp(1.000000, tophase(1.570796));
+    ti1[0] = cmplxmp(1, tophase(0));
+    ti1[1] = cmplxmp(5, tophase(0));
+    ti1[2] = cmplxmp(1, tophase(pi));
+    ti1[3] = cmplxmp(fromReal(sqrt(2)), tophase(pi/4));
+    ti1[4] = cmplxmp(fromReal(sqrt(2)), tophase(3*pi/4));
+    ti1[5] = cmplxmp(fromReal(sqrt(2)), tophase(-3*pi/4));
+    ti1[6] = cmplxmp(fromReal(sqrt(2)), tophase(-pi/4));
+    ti1[7] = cmplxmp(1, tophase(pi/2));
+    // ti1[0] = cmplxmp(1.000000, tophase(3.141593));
+    // ti1[1] = cmplxmp(1.000000, tophase(-1.570796));
+    // ti1[2] = cmplxmp(1.000000, tophase(0.000000));
+    // ti1[3] = cmplxmp(1.000000, tophase(1.570796));
+    // ti1[4] = cmplxmp(1.000000, tophase(3.141593));
+    // ti1[5] = cmplxmp(1.000000, tophase(-1.570796));
+    // ti1[6] = cmplxmp(1.000000, tophase(0.000000));
+    // ti1[7] = cmplxmp(1.000000, tophase(1.570796));
 
     rule f0 (from == 0); dofrom(ti1); endrule
     // rule f1 (feed == 1); dofeed(ti2); endrule
