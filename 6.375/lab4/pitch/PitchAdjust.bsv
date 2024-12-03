@@ -70,3 +70,74 @@ module mkPitchAdjust(Integer s, FixedPoint#(isize, fsize) factor, PitchAdjust#(n
     interface Get response = toGet(outputFIFO);
 endmodule
 
+interface SettablePitchAdjust#(
+        numeric type nbins, numeric type isize,
+        numeric type fsize, numeric type psize
+    );
+
+    interface PitchAdjust#(nbins, isize, fsize, psize) adjust;
+    interface Put#(FixedPoint#(isize, fsize)) setFactor;
+endinterface
+
+// s - the amount each window is shifted from the previous window.
+//
+// factor - the amount to adjust the pitch.
+//  1.0 makes no change. 2.0 goes up an octave, 0.5 goes down an octave, etc...
+module mkSettablePitchAdjust(Integer s, SettablePitchAdjust#(nbins, isize, fsize, psize) ifc);
+    FIFO#(Vector#(nbins, ComplexMP#(isize, fsize, psize))) inputFIFO  <- mkFIFO();
+    FIFO#(Vector#(nbins, ComplexMP#(isize, fsize, psize))) outputFIFO <- mkFIFO();
+
+    Reg#(Vector#(nbins, Phase#(psize))) in_phase   <- mkReg(replicate(0));
+    Vector#(nbins, Reg#(Phase#(psize))) out_phase  <- replicateM(mkReg(0));
+
+    Reg#(Maybe#(FixedPoint#(isize, fsize))) reg_factor <- mkReg(tagged Invalid);
+
+    function Int#(TAdd#(TAdd#(TLog#(nbins), 2), isize)) get_bin(Integer i, FixedPoint#(isize, fsize) factor);
+        FixedPoint#(TAdd#(TLog#(nbins), 2), 0) fxpt_i = fromInteger(i);
+        let bin = fxptGetInt(fxptMult(fxpt_i, factor));
+        return bin;
+    endfunction
+
+    rule pitch_adjust (reg_factor matches tagged Valid .factor);
+        let in = inputFIFO.first();
+        inputFIFO.deq();
+
+        Vector#(nbins, Phase#(psize)) new_in_phase = newVector();
+        Vector#(nbins, ComplexMP#(isize, fsize, psize)) out = replicate(cmplxmp(0, 0));
+
+        for (Integer i = 0; i < valueOf(nbins); i = i + 1) begin
+            new_in_phase[i] = in[i].phase;
+
+            let bin = get_bin(i, factor);
+            let nbin = get_bin(i + 1, factor);
+
+            if (bin != nbin && 0 <= bin && bin < fromInteger(valueOf(nbins))) begin
+                let diff_phase = in[i].phase - in_phase[i];
+                FixedPoint#(psize, 0) d_phase = fromInt(diff_phase);
+
+                let shifted = truncate(fxptGetInt(fxptMult(d_phase, factor)));
+                // use '*' cause bug or compiler error
+                // let shifted = truncate(fxptGetInt(d_phase * factor));
+
+                let new_out_phase = out_phase[bin] + shifted;
+                out_phase[bin] <= new_out_phase;
+
+                out[bin] = cmplxmp(in[i].magnitude, new_out_phase);
+            end
+        end
+
+        in_phase <= new_in_phase;
+        outputFIFO.enq(out);
+    endrule
+
+    interface PitchAdjust adjust;
+        interface Put request  = toPut(inputFIFO);
+        interface Get response = toGet(outputFIFO);
+    endinterface
+
+    interface Put setFactor;
+        method Action put(FixedPoint#(isize, fsize) new_factor) if (!isValid(reg_factor));
+            reg_factor <= tagged Valid new_factor;
+        endmethod
+    endinterface
+endmodule
