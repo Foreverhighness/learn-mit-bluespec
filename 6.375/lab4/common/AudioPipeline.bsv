@@ -17,16 +17,17 @@ import FilterCoefficients::*;
 
 (* synthesize *)
 module mkAudioPipeline(AudioProcessor);
-    AudioProcessor                          fir           <- mkFIRFilter_AudioPipeline();
-    Chunker#(2, Sample)                     chunker       <- mkChunker();
-    OverSampler#(2, FFT_POINTS, Sample)     over_sampler  <- mkOverSampler(replicate(0));
-    FFT#(FFT_POINTS, FixedPoint#(16, 16))   fft           <- mkFFT_AudioPipeline();
-    ToMP#(FFT_POINTS, 16, 16, 16)           to_mp         <- mkToMP_AudioPipeline();
-    PitchAdjust#(FFT_POINTS, 16, 16, 16)    pitch_adjust  <- mkPitchAdjust_AudioPipeline();
-    FromMP#(FFT_POINTS, 16, 16, 16)         from_mp       <- mkFromMP_AudioPipeline();
-    FFT#(FFT_POINTS, FixedPoint#(16, 16))   ifft          <- mkIFFT_AudioPipeline();
-    Overlayer#(FFT_POINTS, 2, Sample)       over_layer    <- mkOverlayer(replicate(0));
-    Splitter#(2, Sample)                    splitter      <- mkSplitter();
+    AudioProcessor                               fir           <- mkFIRFilter_AudioPipeline();
+    Chunker#(2, Sample)                          chunker       <- mkChunker();
+    OverSampler#(2, FFT_POINTS, Sample)          over_sampler  <- mkOverSampler(replicate(0));
+    FFT#(FFT_POINTS, FixedPoint#(16, 16))        fft           <- mkFFT_AudioPipeline();
+    ToMP#(FFT_POINTS, 16, 16, 16)                to_mp         <- mkToMP_AudioPipeline();
+    SettablePitchAdjust#(FFT_POINTS, 16, 16, 16) pitch         <- mkSettablePitchAdjust_AudioPipeline();
+    PitchAdjust#(FFT_POINTS, 16, 16, 16)         adjust        =  pitch.adjust;
+    FromMP#(FFT_POINTS, 16, 16, 16)              from_mp       <- mkFromMP_AudioPipeline();
+    FFT#(FFT_POINTS, FixedPoint#(16, 16))        ifft          <- mkIFFT_AudioPipeline();
+    Overlayer#(FFT_POINTS, 2, Sample)            over_layer    <- mkOverlayer(replicate(0));
+    Splitter#(2, Sample)                         splitter      <- mkSplitter();
 
     rule fir_to_chunker (True);
         let x <- fir.getSampleOutput();
@@ -50,11 +51,11 @@ module mkAudioPipeline(AudioProcessor);
 
     rule to_mp_to_pitch_adjust (True);
         let x <- to_mp.response.get();
-        pitch_adjust.request.put(x);
+        adjust.request.put(x);
     endrule
 
     rule pitch_adjust_to_from_mp (True);
-        let x <- pitch_adjust.response.get();
+        let x <- adjust.response.get();
         from_mp.request.put(x);
     endrule
 
@@ -82,6 +83,8 @@ module mkAudioPipeline(AudioProcessor);
         let x <- splitter.response.get();
         return x;
     endmethod
+
+    interface Put setFactor = pitch.setFactor;
 endmodule
 
 
@@ -106,6 +109,12 @@ endmodule
 (* synthesize *)
 module mkPitchAdjust_AudioPipeline(PitchAdjust#(FFT_POINTS, 16, 16, 16));
     PitchAdjust#(FFT_POINTS, 16, 16, 16) ret <- mkPitchAdjust(2, 2);
+    return ret;
+endmodule
+
+(* synthesize *)
+module mkSettablePitchAdjust_AudioPipeline(SettablePitchAdjust#(FFT_POINTS, 16, 16, 16));
+    SettablePitchAdjust#(FFT_POINTS, 16, 16, 16) ret <- mkSettablePitchAdjust(2);
     return ret;
 endmodule
 
