@@ -19,5 +19,10 @@ synthAudioPipeline: $(src)
 	mkdir -p $(synth_dir)
 	synth ../common/AudioPipeline.bsv mkAudioPipeline -p $(bsvdir) -s $(synth_dir) -l multisize
 
+test: ../common/Cordic.bsv
+	mkdir -p bscdir
+	bsc -u -sim -simdir $(build_dir) -bdir $(build_dir) -info-dir $(build_dir) $(bscflags) -p +:$(bsvdir) -g mkToFromMPTest $^
+	bsc -e mkToFromMPTest -sim -o $@ -simdir $(build_dir) -bdir $(build_dir) -info-dir $(build_dir) $(bscflags)
+
 clean:
 	rm -rf bscdir PitchAdjust AudioPipeline *.so

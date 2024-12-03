@@ -317,7 +317,7 @@ module mkFromMP(FromMP#(nbins, isize, fsize, psize));
     FIFO#(Vector#(nbins, ComplexMP#(isize, fsize, psize)))      inputFIFO  <- mkFIFO();
     FIFO#(Vector#(nbins, Complex#(FixedPoint#(isize, fsize))))  outputFIFO <- mkFIFO();
 
-    Vector#(nbins, FromMagnitudePhase#(isize, fsize, psize))      workers    <- replicateM(mkCordicFromMagnitudePhase());
+    Vector#(nbins, FromMagnitudePhase#(isize, fsize, psize))      workers  <- replicateM(mkCordicFromMagnitudePhase());
 
     rule run (True);
         let data = inputFIFO.first();
@@ -339,4 +339,83 @@ module mkFromMP(FromMP#(nbins, isize, fsize, psize));
 
     interface Put request  = toPut(inputFIFO);
     interface Get response = toGet(outputFIFO);
+endmodule
+
+typedef 8 TESTBIN;
+
+// Unit tests for `ToMP` and `FromMP`
+(* synthesize *)
+module mkToFromMPTest (Empty);
+    ToMP#(TESTBIN, 16, 16, 16) to_mp <- mkToMP();
+    FromMP#(TESTBIN, 16, 16, 16) from_mp <- mkFromMP();
+
+    Reg#(Bool)     passed <- mkReg(True);
+    Reg#(Bit#(32)) from   <- mkReg(0);
+    Reg#(Bit#(32)) to     <- mkReg(0);
+    Reg#(Bit#(32)) check  <- mkReg(0);
+
+    Vector#(3, Reg#(Vector#(TESTBIN, Complex#(FixedPoint#(16, 16))))) res <- replicateM(mkRegU());
+
+    function Action dofrom(Vector#(TESTBIN, ComplexMP#(16, 16, 16)) x);
+        action
+            from_mp.request.put(x);
+            from <= from + 1;
+        endaction
+    endfunction
+
+    function Action doto();
+        action
+            let x <- from_mp.response.get();
+            res[to] <= x;
+            to_mp.request.put(x);
+            to <= to + 1;
+        endaction
+    endfunction
+
+    function Action docheck(Vector#(TESTBIN, ComplexMP#(16, 16, 16)) want);
+        action
+            let x <- to_mp.response.get();
+            if (x != want) begin
+                $display("want: ", fshow(want));
+                $display("mid : ", fshow(res[check]));
+                $display("get : ", fshow(x));
+                passed <= False;
+            end
+            check <= check + 1;
+        endaction
+    endfunction
+
+    // function Action docheck
+
+    Vector#(TESTBIN, ComplexMP#(16, 16, 16)) ti1 = newVector;
+    ti1[0] = cmplxmp(1.000000, tophase(3.141593));
+    ti1[1] = cmplxmp(1.000000, tophase(-1.570796));
+    ti1[2] = cmplxmp(1.000000, tophase(0.000000));
+    ti1[3] = cmplxmp(1.000000, tophase(1.570796));
+    ti1[4] = cmplxmp(1.000000, tophase(3.141593));
+    ti1[5] = cmplxmp(1.000000, tophase(-1.570796));
+    ti1[6] = cmplxmp(1.000000, tophase(0.000000));
+    ti1[7] = cmplxmp(1.000000, tophase(1.570796));
+
+    rule f0 (from == 0); dofrom(ti1); endrule
+    // rule f1 (feed == 1); dofeed(ti2); endrule
+    // rule f2 (feed == 2); dofeed(ti3); endrule
+
+    rule t0 (to == 0); doto(); endrule
+    // rule f1 (feed == 1); dofeed(ti2); endrule
+    // rule f2 (feed == 2); dofeed(ti3); endrule
+
+    rule c0 (check == 0); docheck(ti1); endrule
+    // rule c1 (check == 1); docheck(to2); endrule
+    // rule c2 (check == 2); docheck(to3); endrule
+
+    rule finish (from == 1 && to == 1 && check == 1);
+        if (passed) begin
+            $display("PASSED");
+        end else begin
+            $display("FAILED");
+        end
+        $finish();
+    endrule
+
 endmodule
