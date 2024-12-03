@@ -142,9 +142,9 @@ module mkLinearFFT (FFT);
     FIFO#(Vector#(FFT_POINTS, ComplexSample)) inputFIFO  <- mkFIFO();
     FIFO#(Vector#(FFT_POINTS, ComplexSample)) outputFIFO <- mkFIFO();
 
-    Vector#(FFT_LOG_POINTS, FIFO#(Vector#(FFT_POINTS, ComplexSample))) stage_data <- replicateM(mkFIFO());
+    Vector#(TSub#(FFT_LOG_POINTS, 1), FIFO#(Vector#(FFT_POINTS, ComplexSample))) stage_data <- replicateM(mkFIFO());
 
-    Bit#(TLog#(FFT_LOG_POINTS)) max_stage = fromInteger(valueOf(FFT_LOG_POINTS) - 1);
+    Bit#(TLog#(FFT_LOG_POINTS)) final_stage = fromInteger(valueOf(FFT_LOG_POINTS) - 2);
 
     // This rule performs fft using multi-stage.
     rule stage0 (True);
@@ -155,7 +155,7 @@ module mkLinearFFT (FFT);
         stage_data[0].enq(stage_out);
     endrule
 
-    for (Integer stage = 1; stage < valueOf(FFT_LOG_POINTS); stage = stage + 1) begin
+    for (Integer stage = 1; stage < valueOf(FFT_LOG_POINTS) - 1; stage = stage + 1) begin
         rule stage_i (True);
             let data = stage_data[stage - 1].first();
             stage_data[stage - 1].deq();
@@ -166,10 +166,11 @@ module mkLinearFFT (FFT);
     end
 
     rule stageFinal (True);
-        let data = stage_data[max_stage].first();
-        stage_data[max_stage].deq();
+        let data = stage_data[final_stage].first();
+        stage_data[final_stage].deq();
 
-        outputFIFO.enq(data);
+        let stage_out = stage_f(fromInteger(valueOf(FFT_LOG_POINTS) - 1), data);
+        outputFIFO.enq(stage_out);
     endrule
 
     interface Put request;
