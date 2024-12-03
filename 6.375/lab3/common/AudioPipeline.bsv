@@ -1,4 +1,4 @@
-
+import FixedPoint::*;
 import ClientServer::*;
 import GetPut::*;
 
@@ -7,9 +7,10 @@ import Chunker::*;
 import FFT::*;
 import FIRFilter::*;
 import Splitter::*;
+import Cordic::*;
+import PitchAdjust::*;
 
 import FilterCoefficients::*;
-import FixedPoint::*;
 
 module mkAudioPipeline(AudioProcessor);
 
@@ -18,6 +19,10 @@ module mkAudioPipeline(AudioProcessor);
     FFT#(FFT_POINTS, FixedPoint#(16, 16)) fft <- mkFFT();
     FFT#(FFT_POINTS, FixedPoint#(16, 16)) ifft <- mkIFFT();
     Splitter#(FFT_POINTS, ComplexSample) splitter <- mkSplitter();
+
+    ToMP#(8, 16, 16, 16)                  to_mp        <- mkToMP();
+    PitchAdjust#(8, 16, 16, 16)           pitch_adjust <- mkPitchAdjust(2, 2);
+    FromMP#(8, 16, 16, 16)                from_mp      <- mkFromMP();
 
     rule fir_to_chunker (True);
         let x <- fir.getSampleOutput();
@@ -31,8 +36,23 @@ module mkAudioPipeline(AudioProcessor);
         fft.request.put(x);
     endrule
 
-    rule fft_to_ifft (True);
+    rule fft_to_to_mp (True);
         let x <- fft.response.get();
+        to_mp.request.put(x);
+    endrule
+
+    rule to_mp_to_pitch_adjust (True);
+        let x <- to_mp.response.get();
+        pitch_adjust.request.put(x);
+    endrule
+
+    rule pitch_adjust_to_from_mp (True);
+        let x <- pitch_adjust.response.get();
+        from_mp.request.put(x);
+    endrule
+
+    rule from_mp_to_ifft (True);
+        let x <- from_mp.response.get();
         ifft.request.put(x);
     endrule
 

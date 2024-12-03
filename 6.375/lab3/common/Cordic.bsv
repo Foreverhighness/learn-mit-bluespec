@@ -46,7 +46,7 @@ endfunction
 
 // Calculate the Real value of the cordic gain after the given
 // number of iterations. This will be evaluated statically.
-function Real gain(Integer iters); 
+function Real gain(Integer iters);
     let ig = 1;
     if (iters > 0) begin
         ig = sqrt(1 + pow(2, -2*fromInteger(iters-1))) * gain(iters-1);
@@ -60,7 +60,7 @@ module mkCordicToMagnitudePhase (ToMagnitudePhase#(isize, fsize, psize));
     Reg#(FixedPoint#(isize, fsize)) rel <- mkRegU();
     Reg#(FixedPoint#(isize, fsize)) img <- mkRegU();
     Reg#(Phase#(psize)) phase <- mkRegU();
-    Reg#(Bit#(TLog#(psize))) iter <- mkRegU(); 
+    Reg#(Bit#(TLog#(psize))) iter <- mkRegU();
 
     FIFO#(Complex#(FixedPoint#(isize, fsize))) infifo <- mkFIFO();
     FIFO#(ComplexMP#(isize, fsize, psize)) outfifo <- mkFIFO();
@@ -164,7 +164,7 @@ module mkCordicFromMagnitudePhase (FromMagnitudePhase#(isize, fsize, psize));
             img <= 0;
             phase <= p;
         end
-            
+
         iter <= 0;
         idle <= False;
         infifo.deq();
@@ -188,7 +188,7 @@ module mkCordicFromMagnitudePhase (FromMagnitudePhase#(isize, fsize, psize));
             iter <= iter+1;
         end
     endrule
-            
+
     interface Put request = toPut(infifo);
     interface Get response = toGet(outfifo);
 
@@ -202,7 +202,7 @@ module mkCordicTest (Empty);
 
     ToMagnitudePhase#(16, 16, 10) tomp <- mkCordicToMagnitudePhase();
     FromMagnitudePhase#(16, 16, 20) frmp <- mkCordicFromMagnitudePhase();
-    
+
     function Stmt testtomp(Complex#(FixedPoint#(16, 16)) x, ComplexMP#(16, 16, 10) exp);
         return (seq
             $display("-- tomp: ", fshow(x), "---------");
@@ -238,11 +238,11 @@ module mkCordicTest (Empty);
                     $display("wnt: ", fshow(exp));
                     passed <= False;
                 end
-            endaction       
+            endaction
         endseq);
     endfunction
-                
-    
+
+
     Stmt tomptests = (seq
         testtomp(cmplx(1, 0), cmplxmp(1, tophase(0)));
         testtomp(cmplx(5, 0), cmplxmp(5, tophase(0)));
@@ -274,3 +274,69 @@ module mkCordicTest (Empty);
 
 endmodule
 
+
+typedef Server#(
+    Vector#(nbins, Complex#(FixedPoint#(isize, fsize))),
+    Vector#(nbins, ComplexMP#(isize, fsize, psize))
+) ToMP#(numeric type nbins, numeric type isize, numeric type fsize, numeric type psize);
+
+typedef Server#(
+    Vector#(nbins, ComplexMP#(isize, fsize, psize)),
+    Vector#(nbins, Complex#(FixedPoint#(isize, fsize)))
+) FromMP#(numeric type nbins, numeric type isize, numeric type fsize, numeric type psize);
+
+module mkToMP(ToMP#(nbins, isize, fsize, psize));
+    FIFO#(Vector#(nbins, Complex#(FixedPoint#(isize, fsize))))  inputFIFO  <- mkFIFO();
+    FIFO#(Vector#(nbins, ComplexMP#(isize, fsize, psize)))      outputFIFO <- mkFIFO();
+
+    Vector#(nbins, ToMagnitudePhase#(isize, fsize, psize))      workers    <- replicateM(mkCordicToMagnitudePhase());
+
+    rule run (True);
+        let data = inputFIFO.first();
+        inputFIFO.deq();
+
+        for (Integer i = 0; i < valueOf(nbins); i = i + 1) begin
+            workers[i].request.put(data[i]);
+        end
+    endrule
+
+    rule collect (True);
+        Vector#(nbins, ComplexMP#(isize, fsize, psize)) results = newVector();
+        for (Integer i = 0; i < valueOf(nbins); i = i + 1) begin
+            results[i] <- workers[i].response.get();
+        end
+
+        outputFIFO.enq(results);
+    endrule
+
+    interface Put request  = toPut(inputFIFO);
+    interface Get response = toGet(outputFIFO);
+endmodule
+
+module mkFromMP(FromMP#(nbins, isize, fsize, psize));
+    FIFO#(Vector#(nbins, ComplexMP#(isize, fsize, psize)))      inputFIFO  <- mkFIFO();
+    FIFO#(Vector#(nbins, Complex#(FixedPoint#(isize, fsize))))  outputFIFO <- mkFIFO();
+
+    Vector#(nbins, FromMagnitudePhase#(isize, fsize, psize))      workers    <- replicateM(mkCordicFromMagnitudePhase());
+
+    rule run (True);
+        let data = inputFIFO.first();
+        inputFIFO.deq();
+
+        for (Integer i = 0; i < valueOf(nbins); i = i + 1) begin
+            workers[i].request.put(data[i]);
+        end
+    endrule
+
+    rule collect (True);
+        Vector#(nbins, Complex#(FixedPoint#(isize, fsize))) results = newVector();
+        for (Integer i = 0; i < valueOf(nbins); i = i + 1) begin
+            results[i] <- workers[i].response.get();
+        end
+
+        outputFIFO.enq(results);
+    endrule
+
+    interface Put request  = toPut(inputFIFO);
+    interface Get response = toGet(outputFIFO);
+endmodule
